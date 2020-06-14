@@ -1,7 +1,11 @@
 const express = require('express');
+const connectDB = require('./config/db');
 
 // Initialized express
 const app = express();
+
+// Connect MongoDB
+connectDB();
 
 // Root route
 app.get('/', (req, res) => res.json({ msg: 'Welcome to the User Auth API...' }));
