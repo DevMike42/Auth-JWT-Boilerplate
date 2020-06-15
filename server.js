@@ -7,6 +7,9 @@ const app = express();
 // Connect MongoDB
 connectDB();
 
+// Init Middleware to accept json data in req.body
+app.use(express.json({ extended: false }));
+
 // Root route
 app.get('/', (req, res) => res.json({ msg: 'Welcome to the User Auth API...' }));
 

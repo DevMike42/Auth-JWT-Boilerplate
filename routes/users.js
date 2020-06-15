@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const usersController = require('../controllers/users');
+const { check } = require('express-validator');
 
 // @route         GET api/users
 // @description   Get logged in User info
@@ -11,9 +13,17 @@ router.get('/:id', (req, res) => {
 // @route         POST api/users
 // @description   Register a User
 // @access        Public
-router.post('/', (req, res) => {
-  res.send('Register a User');
-});
+router.route('/')
+  .post([
+    // Validation checks on user input using express-validator
+    check('username', 'Please add a name')
+      .not()
+      .isEmpty(),
+    check('email', 'Please include a valid email')
+      .isEmail(),
+    check('password', 'Please enter a password with 6 or more characters')
+      .isLength({ min: 6 })
+  ], usersController.create);
 
 // @route         PUT api/users
 // @description   Update User info
