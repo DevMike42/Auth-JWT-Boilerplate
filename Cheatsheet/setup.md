@@ -309,7 +309,7 @@ Basic steps for setting up a backend Node application that includes User Login a
     * Remove temporary `res.send()` 
       ```js
       // Temporary
-              res.send('User Saved');
+      res.send('User Saved');
       ```
     * Create the payload to be sent with the `JSON Web Token` (Only need to send a user object with the `id` of the user)
       ```js
@@ -346,3 +346,110 @@ Basic steps for setting up a backend Node application that includes User Login a
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNWVlNmRkYjllYzYxNWY0ZGEzYjA1MDc1In0sImlhdCI6MTU5MjE4ODM0NSwiZXhwIjoxNTkyMjI0MzQ1fQ.ZTETUDJ15cwOhQioqaHOf_Ew4T1ta3mNfTStoHgYT00"
       }
       ```
+
+13. Work on the `auth post` route for loggin in and authenticating a user
+
+    * Bring in necessary items to for access
+      ```js
+      require('dotenv').config();
+      const bcrypt = require('bcryptjs');
+      const jwt = require('jsonwebtoken');
+      const express = require('express');
+      const router = express.Router();
+      const { check, validationResult } = require('express-validator');
+      const User = require('../models/User');
+
+      const JWT_SECRET = process.env.JWT_SECRET;
+      ```
+    * Remove the temporary `res.send` in the route
+      ```js
+      // Temporary
+      res.send('Log in User');
+      ```
+    * Add validation checks on user input as the second argument in the `post` method
+      ```js
+      router.post('/', [
+        // Validation checks on user input using express-validator
+        check('username', 'Please include a valide username')
+          .exists(),
+        check('password', 'Password is required')
+          .exists()
+      ],
+      ```
+    * Add the callback function as the third arguement to the `post` method
+      ```js
+      async (req, res) => {};
+      ```
+    * Inside the cb function add validation checks to ensure the `req` does not include an errors array
+      ```js
+      // Checks if validation checks are empty
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      ```
+    * Destructure the `username` and `password` from the req.body
+      ```js
+      // Destructure username & password from req.body
+      const { username, password } = req.body;
+      ```
+    * Inside of a try/catch
+        * Access the db by the `username`
+        * Check if the user is registered
+        * If not, return a json msg stating invalide credentials
+        * If so, use `bcryptjs` to compare the password to the one saved in db 
+        * If password is incorrect, return a json msg stating password is incorrect
+        * Otherwise, store the `user id` in the payload and send back a `jwt` 
+        ```js
+        // Check if user is registered
+        try {
+          let user = await User.findOne({ username: username });
+
+          if (!user) {
+            return res.status(400).json({ msg: 'Invalid Credentials: A user with that username does not exist' });
+          }
+
+          // If registered > check if password input matches stored data
+          const isMatch = await bcrypt.compare(password, user.password);
+
+          // If password is incorrect > send error message
+          if (!isMatch) {
+            return res.status(400).json({ msg: 'Invalid Credentials: Password is incorrect' });
+          }
+
+          // If registers and password matches > login and return token
+          // Store user id in jwt payload
+          const payload = {
+            user: {
+              id: user.id
+            }
+          };
+
+          // Add payload and jwtSecret to token and send back
+          jwt.sign(payload, JWT_SECRET, {
+            expiresIn: 36000
+          }, (err, token) => {
+            if (err) throw err;
+            res.json({ token });
+          });
+
+        } catch (err) {
+          console.error(err.message);
+          res.status(500).send('Server Error');
+        }
+        ```
+    * Run the server and test the `Auth` `Post` route for logging in a user. 
+        * Headers - Content-Type: application/json
+        * Body - Raw JSON
+          ```json
+          {
+            "username": "tinyrick",
+            "password": "123456"
+          }
+          ```
+        * Should respond with a token
+          ```json
+          {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNWVlNmRkYjllYzYxNWY0ZGEzYjA1MDc1In0sImlhdCI6MTU5MjI2MzMyOCwiZXhwIjoxNTkyMjk5MzI4fQ.Y42onD4UBtW6xyo980IgCqLagBAlMypd62kq3PhV5Ho"
+          }
+          ```
