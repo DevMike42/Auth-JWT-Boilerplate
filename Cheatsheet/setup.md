@@ -309,7 +309,7 @@ Basic steps for setting up a backend Node application that includes User Login a
     * Remove temporary `res.send()` 
       ```js
       // Temporary
-              res.send('User Saved');
+      res.send('User Saved');
       ```
     * Create the payload to be sent with the `JSON Web Token` (Only need to send a user object with the `id` of the user)
       ```js
@@ -346,3 +346,234 @@ Basic steps for setting up a backend Node application that includes User Login a
       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNWVlNmRkYjllYzYxNWY0ZGEzYjA1MDc1In0sImlhdCI6MTU5MjE4ODM0NSwiZXhwIjoxNTkyMjI0MzQ1fQ.ZTETUDJ15cwOhQioqaHOf_Ew4T1ta3mNfTStoHgYT00"
       }
       ```
+
+13. Work on the `auth post` route for loggin in and authenticating a user
+
+    * Bring in necessary items to for access
+      ```js
+      const { check } = require('express-validator');
+      ```
+    * Remove the temporary `res.send` in the route
+      ```js
+      // Temporary
+      res.send('Log in User');
+      ```
+    * Add validation checks on user input as the second argument in the `post` method
+      ```js
+      router.post('/', [
+        // Validation checks on user input using express-validator
+        check('username', 'Please include a valide username')
+          .exists(),
+        check('password', 'Password is required')
+          .exists()
+      ],
+      ```
+    * Add the callback function titled `authController.assignToken` as the third arguement to the `post` method (cb and controller to be made later)
+      ```js
+      router.post('/', [
+        // Validation checks on user input using express-validator
+        check('username', 'Please include a valide username')
+          .exists(),
+        check('password', 'Password is required')
+          .exists()
+      ], authController.assignToken);
+      ```
+    * Create a file in the `controllers` folder title `auth.js`
+    * Bring in the necessary items for access and store the `JWT_SECRET` in a variable
+      ```js
+      require('dotenv').config();
+      const bcrypt = require('bcryptjs');
+      const jwt = require('jsonwebtoken');
+      const { validationResult } = require('express-validator');
+      const User = require('../models/User');
+
+      const JWT_SECRET = process.env.JWT_SECRET;
+      ``` 
+    * Create an exported function titled `assignToken` that handles the `request` and `response`
+      ```js
+      module.exports = {
+        assignToken: async (req, res) => {
+
+        }
+      }
+      ```
+    * Inside the `assignToken` function add validation checks to ensure the `req` does not include an errors array
+      ```js
+      // Checks if validation checks are empty
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      ```
+    * Destructure the `username` and `password` from the req.body
+      ```js
+      // Destructure username & password from req.body
+      const { username, password } = req.body;
+      ```
+    * Inside of a try/catch
+        * Access the db by the `username`
+        * Check if the user is registered
+        * If not, return a json msg stating invalide credentials
+        * If so, use `bcryptjs` to compare the password to the one saved in db 
+        * If password is incorrect, return a json msg stating password is incorrect
+        * Otherwise, store the `user id` in the payload and send back a `jwt` 
+        ```js
+        // Check if user is registered
+        try {
+          let user = await User.findOne({ username: username });
+
+          if (!user) {
+            return res.status(400).json({ msg: 'Invalid Credentials: A user with that username does not exist' });
+          }
+
+          // If registered > check if password input matches stored data
+          const isMatch = await bcrypt.compare(password, user.password);
+
+          // If password is incorrect > send error message
+          if (!isMatch) {
+            return res.status(400).json({ msg: 'Invalid Credentials: Password is incorrect' });
+          }
+
+          // If registers and password matches > login and return token
+          // Store user id in jwt payload
+          const payload = {
+            user: {
+              id: user.id
+            }
+          };
+
+          // Add payload and jwtSecret to token and send back
+          jwt.sign(payload, JWT_SECRET, {
+            expiresIn: 36000
+          }, (err, token) => {
+            if (err) throw err;
+            res.json({ token });
+          });
+
+        } catch (err) {
+          console.error(err.message);
+          res.status(500).send('Server Error');
+        }
+        ```
+    * Run the server and test the `Auth` `Post` route for logging in a user. 
+        * Headers - Content-Type: application/json
+        * Body - Raw JSON
+          ```json
+          {
+            "username": "tinyrick",
+            "password": "123456"
+          }
+          ```
+        * Should respond with a token
+          ```json
+          {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNWVlNmRkYjllYzYxNWY0ZGEzYjA1MDc1In0sImlhdCI6MTU5MjI2MzMyOCwiZXhwIjoxNTkyMjk5MzI4fQ.Y42onD4UBtW6xyo980IgCqLagBAlMypd62kq3PhV5Ho"
+          }
+          ```
+
+14. Create Auth Middlware for sending token to protect private routes
+
+    * Create a folder in the root directory titled `middlware`
+    * Create a file in that folder titled `auth.js`
+    * Bring in `dotenv`, `jsonwebtoken`, and set the variable for the `JWT_SECRET`
+      ```js
+      require('dotenv').config();
+      const jwt = require('jsonwebtoken');
+
+      const JWT_SECRET = process.env.JWT_SECRET;
+      ```
+    * Create an exported function that takes in `request`, `response`, and `next`. The `next` parameter is a function that says whenever you're done, move on to the next piece of middleware.
+      ```js
+        module.exports = function(req, res, next) {
+        
+        };
+      ```
+    * Access the token from the header in the request
+      ```js
+      // Get token from header
+      const token = req.header('x-auth-token');
+      ```
+    * Check if token exists (If no, return json msg)
+      ```js
+      // Check if no token exists
+      if (!token) {
+        return res.status(401).json({ msg: 'No token, authorization denied' });
+      }
+      ```
+    * Verify token
+      ```js
+      // Verify token
+      try {
+        // Stores payload with user and token
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        // Assigns req.user to payload
+        req.user = decoded.user;
+        next();
+      } catch (err) {
+        res.status(401).json({ msg: 'Token is not valid' });
+      }
+      ```
+    * Inside the folder `routes`, inside `auth.js`, bring in the auth middleware we just made
+      ```js
+      const auth = require('../middleware/auth');
+      ``` 
+    * Inside the `GET` route, add `auth` as a 2nd argument
+      ```js
+      router.get('/', auth, (req, res) => {
+        res.send('Get logged in User');
+      });
+      ```
+    * Test `Auth GET` route with Postman for getting the logged in user `with and without a token`
+        * Headers - x-auth-token: >token value<
+        * Body - None
+        * Without token, response should be denied authorization message
+          ```json
+          {
+            "msg": "No token, authorization denied"
+          }
+          ```
+        * With token, response should be `Get logged in User` string from temporary `res.send`
+        
+15. Work on the `confirmToken` method inside `authController` for verifying a token
+
+    * Replace the cb function inside the `auth get` route with the `authController` method `confirmToken` (To be made later)
+      ```js
+      router.get('/', auth, authController.confirmToken);
+      ```
+    * Inside the `controllers` folder, inside the `auth.js` file, add an exported asynchronous method to the the auth controller titled, `confirmToken` that handles the request and response
+      ```js
+      confirmToken: async (req, res) => {
+        
+      }
+      ```
+    * Inside the `confirmToken` method add a try/catch. The token being sent with the `auth` middleware will contain a user with the `user id`. Find the user by id and return the user (minus the password from the db)
+      ```js
+      try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+      } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+      }
+      ```
+    * Test the `auth GET` route with Postman with and without a token
+        * Headers - x-auth-token: >token value<
+        * Body - None
+        * Without token, response should be denied authorization message
+          ```json
+          {
+            "msg": "No token, authorization denied"
+          }
+          ```
+        * With token, response should be a json object with the logged in user info (minus the password)
+          ```json
+          {
+            "_id": "5ee6ddb9ec615f4da3b05075",
+            "username": "tinyrick",
+            "email": "tinyrick@examples.com",
+            "fullName": "Rick Sanchez C137",
+            "date": "2020-06-15T02:32:25.585Z",
+            "__v": 0
+          }
+          ```
