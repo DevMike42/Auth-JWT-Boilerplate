@@ -62,5 +62,32 @@ module.exports = {
       console.error(err);
       res.status(500).send('Server Error');
     }
+  },
+  updateUser: async (req, res) => {
+    const { username, email, fullName, password } = req.body;
+
+    const updatedUser = {};
+    if (username) updatedUser.username = username;
+    if (email) updatedUser.email = email;
+    if (fullName) updatedUser.fullName = fullName;
+    if (password) updatedUser.password = password;
+
+    try {
+      let user = await User.findById(req.params.id);
+
+      user = await User.findByIdAndUpdate(req.params.id,
+        { $set: updatedUser },
+        { new: true });
+
+      res.json({ msg: 'User info updated successfully!' });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send('Server Error');
+    }
+  },
+  removeUser: async (req, res) => {
+    await User.findByIdAndRemove(req.params.id);
+
+    res.json({ msg: 'User account has been removed' });
   }
 };

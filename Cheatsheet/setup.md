@@ -577,3 +577,88 @@ Basic steps for setting up a backend Node application that includes User Login a
             "__v": 0
           }
           ```
+
+16. Work on adding funcitonality for a User to update his/her account info
+
+    * Inside the `routes` folder, inside `users.js`, bring in the `auth` middleware to protect the `put` route
+      ```js
+      const auth = require('../middleware/auth');
+      ```
+    * Add `auth` as a 2nd arguement to the `put` route as well as a `usersController.updateUser` method as a 3rd argument (Note: to be made later)
+      ```js
+      router.put('/:id', auth, usersController.updateUser);
+      ```
+    * Inside the `controllers` folder, inside the `user.js` file, add a new exported asynchronous method title `updateUser`
+      ```js
+      updateUser: async (req, res) => {}
+      ```
+    * Destructure the user info fields from `req.body`
+      ```js
+          const { username, email, fullName, password } = req.body;
+      ```
+    * Create a new object to store the new user info coming in from the user
+      ```js
+      const updatedUser = {};
+      if (username) updatedUser.username = username;
+      if (email) updatedUser.email = email;
+      if (fullName) updatedUser.fullName = fullName;
+      if (password) updatedUser.password = password;
+      ```
+    * Inside of a `try/catch`, locate the user in the db by `id` and set all the new info to the value of `updatedUser`
+      ```js
+      try {
+        let user = await User.findById(req.params.id);
+
+        user = await User.findByIdAndUpdate(req.params.id,
+          { $set: updatedUser },
+          { new: true });
+
+        res.json({ msg: 'User info updated successfully!' });
+      } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+      }
+      ```
+    * Test the route with Postman
+        * Headers - Content-Type: application/json | x-auth-token: >validtoken<
+        * Body - Raw json containing all new fields
+          ```json
+          {
+            "username": "tinyrick",
+            "email": "tinyrick@examples.com",
+            "fullName": "Rick Sanchez C137",
+            "password": "444444"
+          }
+          ```
+        * Response - should be a msg stating user info was updated and db should reflect new data
+          ```json
+          {
+            "msg": "User info updated successfully!"
+          }
+          ```
+
+17. Work on functionality for a User to remove his/her account
+
+    * Add `auth` as a 2nd arguement to the `delete` route as well as a `usersController.removeUser` method as a 3rd argument (Note: to be made later)
+      ```js
+      router.delete('/:id', auth, usersController.removeUser);
+      ```
+    * Inside the `controllers` folder, inside the `user.js` file, add a new exported asynchronous method title `removeUser`
+      ```js
+      removeUser: async (req, res) => {}
+      ```
+    * Using mongoose method `findByIdAndRemove`, locate the user and remove it from the db. Respond with a json msg stating the user was removed
+      ```js
+      await User.findByIdAndRemove(req.params.id);
+
+      res.json({ msg: 'User account has been removed' });
+      ```
+    * Test the `delete` route with Postman
+        * Headers - x-auth-token: >validtoken<
+        * Body - none
+        * Response - should return a json msg stating the user was removed and the document for that user should no longer remain in the db
+          ```json
+          {
+            "msg": "User account has been removed"
+          }
+          ```
