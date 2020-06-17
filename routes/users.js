@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const usersController = require('../controllers/users');
 const { check } = require('express-validator');
 
@@ -28,15 +29,11 @@ router.route('/')
 // @route         PUT api/users
 // @description   Update User info
 // @access        Private
-router.put('/:id', (req, res) => {
-  res.send('Update User info');
-});
+router.put('/:id', auth, usersController.updateUser);
 
 // @route         DELETE api/users
 // @description   Delete a User
 // @access        Private
-router.delete('/:id', (req, res) => {
-  res.send('Delete a User');
-});
+router.delete('/:id', auth, usersController.removeUser);
 
 module.exports = router;
